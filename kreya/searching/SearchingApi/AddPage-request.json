@@ -1,0 +1,4 @@
+{
+  "url": "{{ faker.internet.url }}",
+  "text": "{{ faker.lorem.text }}"
+}

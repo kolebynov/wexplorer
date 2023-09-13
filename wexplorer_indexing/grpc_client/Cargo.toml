@@ -1,0 +1,11 @@
+[package]
+name = "wexplorer_indexing_grpc_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = { workspace = true }
+tonic = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }

@@ -1,0 +1,16 @@
+[package]
+name = "wexplorer_web_app_grpc_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[features]
+default = ["no_wasm"]
+no_wasm = ["tonic/transport", "tonic-build/transport", "tokio/rt-multi-thread"]

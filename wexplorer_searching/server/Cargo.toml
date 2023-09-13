@@ -1,0 +1,20 @@
+[package]
+name = "wexplorer_searching_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = { workspace = true }
+tower = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-util = { workspace = true }
+tonic = { workspace = true, default-features = true }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true }
+itertools = { workspace = true }
+url = { workspace = true }
+num = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }

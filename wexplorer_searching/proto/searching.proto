@@ -1,0 +1,34 @@
+syntax = "proto3";
+package searching;
+
+import "google/protobuf/empty.proto";
+
+message AddPageRequest {
+    string url = 1;
+    string text = 2;
+}
+
+message SearchRequest {
+    string text = 1;
+}
+
+message SearchResponse {
+    message Result {
+        message FoundEntry {
+            string text = 1;
+            int32 highlight_start = 2;
+            int32 highlight_end = 3;
+        }
+
+        string url = 1;
+        repeated FoundEntry entries = 2;
+    }
+
+    repeated Result results = 1;
+}
+
+service SearchingApi {
+    rpc AddPage(AddPageRequest) returns (google.protobuf.Empty);
+
+    rpc Search(SearchRequest) returns (SearchResponse);
+}

@@ -1,0 +1,9 @@
+[package]
+name = "wexplorer_web_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { workspace = true }
+tonic-web-wasm-client = { workspace = true }
+wexplorer_web_app_grpc_client = { path = "../wexplorer_web_app/grpc_client", default-features = false }

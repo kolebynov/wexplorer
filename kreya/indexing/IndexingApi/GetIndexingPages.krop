@@ -1,0 +1,13 @@
+{
+  "details": {
+    "methodFqn": "indexing.IndexingApi.GetIndexingPages"
+  },
+  "requests": [
+    {
+      "location": "GetIndexingPages-request.json"
+    }
+  ],
+  "operationType": "unary",
+  "invokerName": "grpc",
+  "importStreamId": "d8ca042b-595d-4b1e-a3e5-aa2e649f60ee"
+}

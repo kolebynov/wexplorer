@@ -1,0 +1,24 @@
+syntax = "proto3";
+package indexing;
+
+import "google/protobuf/empty.proto";
+
+message IndexWebSiteRequest {
+    string origin = 1;
+}
+
+message GetIndexingWebSitesResponse {
+    repeated string origins = 1;
+}
+
+message GetIndexingPagesResponse {
+    repeated string pages = 1;
+}
+
+service IndexingApi {
+    rpc IndexWebSite(IndexWebSiteRequest) returns (google.protobuf.Empty);
+
+    rpc GetIndexingWebSites(google.protobuf.Empty) returns (GetIndexingWebSitesResponse);
+
+    rpc GetIndexingPages(google.protobuf.Empty) returns (GetIndexingPagesResponse);
+}
