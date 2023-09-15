@@ -1,8 +1,8 @@
 use std::sync::Mutex;
 
 use num::clamp;
-use opensearch::{OpenSearch, http::transport::Transport, IndexParts};
-use serde_json::json;
+use opensearch::{OpenSearch, http::transport::Transport, IndexParts, SearchParts};
+use serde_json::{json, Value};
 use tonic::{Request, Response, Status};
 use tracing::info;
 
@@ -40,6 +40,43 @@ impl SearchingApi for SearchingApiImpl {
     }
 
     async fn search(&self, request: Request<SearchRequest>) -> Result<Response<SearchResponse>, Status> {
-        Ok(Response::new(SearchResponse { ..Default::default() }))
+        let request = request.into_inner();
+        let search_response = self.open_search_client
+            .search(SearchParts::Index(&["search_index"]))
+            .body(json!({
+                "_source": ["url"],
+                "query": {
+                    "match": {
+                        "text": request.text
+                    }
+                },
+                "highlight": {
+                    "fields": {
+                        "text": {}
+                    },
+                    "pre_tags": [""],
+                    "post_tags": [""]
+                }
+            }))
+            .send().await
+            .map_err(|err| Status::internal(err.to_string()))?
+            .json::<Value>().await
+            .map_err(|err| Status::internal(err.to_string()))?;
+
+        let results = search_response["hits"]["hits"].as_array().unwrap()
+            .iter()
+            .map(|hit| {
+                search_response::Result {
+                    url: hit["_source"]["url"].as_str().unwrap().to_string(),
+                    entries: hit["highlight"]["text"].as_array().unwrap().iter()
+                        .map(|h| FoundEntry {
+                            text: h.as_str().unwrap().to_string(),
+                        })
+                        .collect(),
+                }
+            })
+            .collect();
+
+        Ok(Response::new(SearchResponse { results }))
     }
 }

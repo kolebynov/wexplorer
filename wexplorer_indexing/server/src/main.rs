@@ -1,4 +1,6 @@
 use std::{sync::{Arc, atomic::AtomicU64}, task::{Context, Poll}, fmt::Debug};
+use std::sync::Mutex;
+use rusqlite::Connection;
 
 use api::{IndexingApiImpl, indexing_api_server::IndexingApiServer};
 use indexing::{Indexer, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer, UrlProcessorImpl, UrlProcessor, RemoveQueryParamsNormalizer, RemoveQueryParam, QueryParamMatchType, SortQueryParamsNormalizer, SchemeToLowerCaseNormalizer, TextExtractor};
@@ -66,9 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_normalizer(SortQueryParamsNormalizer {})
         .add_normalizer(SchemeToLowerCaseNormalizer {})
         .build();
+    let connection = Connection::open("temp.db").unwrap();
     let mut indexer = Indexer::new(
-        IndexingQueue::new(), UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
-    indexer.start_processing(1);
+        IndexingQueue::new(connection).unwrap(),
+        UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
+    indexer.start_processing(2);
     Server::builder()
         .layer(LogLayer {})
         .add_service(IndexingApiServer::new(IndexingApiImpl { indexer }))

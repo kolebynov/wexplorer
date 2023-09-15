@@ -18,6 +18,8 @@ itertools = { workspace = true }
 url = { workspace = true }
 form_urlencoded = { workspace = true }
 ego-tree = { workspace = true }
+rusqlite = { workspace = true }
+const_format = { workspace = true }
 wexplorer_searching_grpc_client = { path = "../../wexplorer_searching/grpc_client" }
 
 [build-dependencies]

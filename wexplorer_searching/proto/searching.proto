@@ -16,8 +16,6 @@ message SearchResponse {
     message Result {
         message FoundEntry {
             string text = 1;
-            int32 highlight_start = 2;
-            int32 highlight_end = 3;
         }
 
         string url = 1;

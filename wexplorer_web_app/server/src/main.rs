@@ -1,25 +1,9 @@
-use api::{echo_service_server::{EchoService, EchoServiceServer}, EchoRequest, EchoResponse};
 use tonic::{transport::Server, Request, Response, Status};
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{CorsLayer, Any};
+use web_searching_api::{web_searching_api_server::WebSearchingApiServer, WebSearchingApiImpl};
 
-mod api {
-    tonic::include_proto! {"api"}
-}
-
-#[derive(Debug, Default)]
-pub struct Echo {}
-
-#[tonic::async_trait]
-impl EchoService for Echo {
-    async fn echo(&self, request: Request<EchoRequest>) -> Result<Response<EchoResponse>, Status> {
-        let reply = EchoResponse {
-            message: format!("{}", request.into_inner().message),
-        };
-
-        Ok(Response::new(reply))
-    }
-}
+mod web_searching_api;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .allow_methods(Any)
             .allow_headers(Any))
         .layer(GrpcWebLayer::new())
-        .add_service(EchoServiceServer::new(Echo {}))
+        .add_service(WebSearchingApiServer::new(WebSearchingApiImpl::new()))
         .serve("0.0.0.0:8081".parse()?)
         .await?;
 

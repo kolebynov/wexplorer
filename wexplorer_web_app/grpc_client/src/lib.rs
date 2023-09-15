@@ -1,1 +1,1 @@
-tonic::include_proto! {"api"}
+tonic::include_proto! {"web_searching"}

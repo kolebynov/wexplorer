@@ -65,7 +65,7 @@ where
 
     pub async fn index_page(&self, url: Url) {
         if let Some(url) = self.url_processor.process_url(url) {
-            self.queue.enqueue(url).await;
+            self.queue.enqueue(url).unwrap();
         }
     }
 
@@ -79,13 +79,13 @@ where
             let text_extractor = self.text_extractor.clone();
 
             self.processing_handles.push(tokio::spawn(async move {
-                Indexer::process_queue(queue.as_ref(), url_processor, text_extractor).with_cancellation(&ct).await;
+                Indexer::process_queue(queue, url_processor, text_extractor).with_cancellation(&ct).await;
                 info!("Indexing worker stopped");
             }.instrument(error_span!("indexing_worker", worker = i))));
         }
     }
 
-    async fn process_queue(queue: &IndexingQueue, url_processor: U, text_extractor: TextExtractor) {
+    async fn process_queue(queue: Arc<IndexingQueue>, url_processor: U, text_extractor: TextExtractor) {
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
             .redirect(Policy::limited(20))
@@ -109,13 +109,13 @@ where
         let base_selector = Selector::parse("base").unwrap();
 
         loop {
-            let queue_item = queue.dequeue().await;
-            info!("Processing {}", queue_item);
+            let queue_item = queue.peek().await.unwrap();
+            info!("Processing {}", queue_item.uri);
 
-            let html_text = match execute_request(&http_client, &queue_item).await {
+            let html_text = match execute_request(&http_client, &queue_item.uri).await {
                 Ok(text) => text,
                 Err(err) => {
-                    warn!("Request {} failed {}", queue_item, err);
+                    warn!("Request {} failed {}", queue_item.uri, err);
                     continue;
                 },
             };
@@ -127,10 +127,10 @@ where
                 }
 
                 let base_url = if let Some(base) = html.select(&base_selector).next() {
-                    queue_item.join(base.value().attr("href").unwrap_or("")).unwrap_or(queue_item.clone())
+                    queue_item.uri.join(base.value().attr("href").unwrap_or("")).unwrap_or(queue_item.uri.clone())
                 }
                 else {
-                    queue_item.clone()
+                    queue_item.uri.clone()
                 };
 
                 let links = html.select(&link_selector)
@@ -143,15 +143,17 @@ where
             info!("Html has {} links", links.len());
 
             for link in links {
-                queue.enqueue(link).await;
+                queue.enqueue(link).unwrap();
             }
 
             if let Some(text) = text {
-                while let Err(err) = searching_client.add_page(AddPageRequest { url: queue_item.to_string(), text: text.clone() }).await {
+                while let Err(err) = searching_client.add_page(AddPageRequest { url: queue_item.uri.to_string(), text: text.clone() }).await {
                     warn!("Failed to send page to searching service {}", err);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             }
+
+            queue.mark_processed(queue_item.id).unwrap();
         }
     }
 }
