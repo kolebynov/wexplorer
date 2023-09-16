@@ -1,16 +1,18 @@
-use std::{future::Future, collections::{VecDeque, HashSet}, sync::Mutex};
+use std::{future::Future, collections::{VecDeque, HashSet}, sync::{Mutex, Arc}};
 use const_format::formatcp;
 
 use itertools::Itertools;
 use rusqlite::{Connection, OptionalExtension, Statement};
+use sea_query::{Table, ColumnDef, SqliteQueryBuilder, Iden, Query, Expr, Value, QueryStatementWriter, SchemaStatementBuilder, QueryStatementBuilder, Order, SimpleExpr};
 use tokio::sync::Notify;
+use tracing::{info, debug};
 use url::Url;
-use crate::indexing::Indexer;
+use crate::indexing::{Indexer, SqliteSchemaStatementBuilder, SqliteQueryStatementWriter};
 
 #[derive(PartialEq)]
 pub struct QueueItem {
     pub id: i64,
-    pub uri: Url
+    pub url: Url
 }
 
 struct QueueItemStatus {}
@@ -21,73 +23,90 @@ impl QueueItemStatus {
     const IN_PROGRESS: i32 = 1;
 }
 
+#[derive(Iden)]
+enum Queue {
+    Table,
+    Id,
+    Url,
+    Status,
+}
+
 pub struct IndexingQueue {
-    connection: Mutex<Connection>,
+    connection: Arc<Mutex<Connection>>,
+    enqueue_item_sql: String,
+    peek_item_sql: String,
+    set_in_progress_sql: String,
+    remove_item_sql: String,
     new_item_notify: Notify,
 }
 
 impl IndexingQueue {
-    const ID_COLUMN: &'static str = "Id";
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Result<Self, rusqlite::Error> {
+        {
+            let connection_guard = connection.lock().unwrap();
+            let create_table_sql = Table::create()
+                .table(Queue::Table)
+                .if_not_exists()
+                .col(ColumnDef::new(Queue::Id).integer().not_null().auto_increment().primary_key())
+                .col(ColumnDef::new(Queue::Url).text().not_null().unique_key())
+                .col(ColumnDef::new(Queue::Status).integer().not_null())
+                .to_sqlite_string();
+            let reset_in_progress_items_sql = Query::update()
+                .table(Queue::Table)
+                .value(Queue::Status, QueueItemStatus::READY)
+                .and_where(Expr::col(Queue::Status).eq(QueueItemStatus::IN_PROGRESS))
+                .to_sqlite_string();
+            connection_guard.execute(&create_table_sql, ())?;
+            connection_guard.execute(&reset_in_progress_items_sql, ())?;
+        }
 
-    const URL_COLUMN: &'static str = "Url";
+        let enqueue_item_sql = Query::insert()
+            .into_table(Queue::Table)
+            .columns([Queue::Url, Queue::Status])
+            .values_panic([SimpleExpr::Custom("?1".to_string()), QueueItemStatus::READY.into()])
+            .to_sqlite_string()
+            .replace("INSERT", "INSERT OR IGNORE");
 
-    const STATUS_COLUMN: &'static str = "Status";
+        let peek_item_sql = Query::select()
+            .columns([Queue::Id, Queue::Url])
+            .from(Queue::Table)
+            .and_where(Expr::col(Queue::Status).eq(QueueItemStatus::READY))
+            .order_by(Queue::Id, Order::Asc)
+            .limit(1)
+            .to_sqlite_string();
 
-    const TABLE_NAME: &'static str = "IndexingQueue";
+        let set_in_progress_sql = Query::update()
+            .table(Queue::Table)
+            .value(Queue::Status, QueueItemStatus::IN_PROGRESS)
+            .and_where(Expr::col(Queue::Id).eq(SimpleExpr::Custom("?1".to_string())))
+            .to_sqlite_string();
 
-    const CREATE_TABLE_SQL: &'static str = formatcp!(
-        r#"CREATE TABLE IF NOT EXISTS "{}" (
-            "{}" INTEGER NOT NULL,
-            "{}" TEXT NOT NULL,
-            "{}" INTEGER NOT NULL,
-            PRIMARY KEY("{}" AUTOINCREMENT)
-        );"#,
-        IndexingQueue::TABLE_NAME, IndexingQueue::ID_COLUMN, IndexingQueue::URL_COLUMN,
-        IndexingQueue::STATUS_COLUMN, IndexingQueue::ID_COLUMN
-    );
-
-    const RESET_IN_PROGRESS_ITEMS_SQL: &'static str = formatcp!(
-        r#"UPDATE {} SET Status={} WHERE Status={}"#,
-        IndexingQueue::TABLE_NAME, QueueItemStatus::READY, QueueItemStatus::IN_PROGRESS
-    );
-
-    const ENQUEUE_ITEM_SQL: &'static str = formatcp!(
-        r#"INSERT INTO {} ({}, {}) VALUES (?1, {})"#,
-        IndexingQueue::TABLE_NAME, IndexingQueue::URL_COLUMN, IndexingQueue::STATUS_COLUMN,
-        QueueItemStatus::READY
-    );
-
-    const PEEK_ITEM_SQL: &'static str = formatcp!(
-        r#"SELECT {}, {} FROM {} WHERE {}={} ORDER BY {} LIMIT 1"#,
-        IndexingQueue::ID_COLUMN, IndexingQueue::URL_COLUMN, IndexingQueue::TABLE_NAME,
-        IndexingQueue::STATUS_COLUMN, QueueItemStatus::READY, IndexingQueue::ID_COLUMN
-    );
-
-    const SET_IN_PROGRESS_SQL: &'static str = formatcp!(
-        r#"UPDATE {} SET {}={} WHERE {}=?1"#,
-        IndexingQueue::TABLE_NAME, IndexingQueue::STATUS_COLUMN, QueueItemStatus::IN_PROGRESS,
-        IndexingQueue::ID_COLUMN
-    );
-
-    const REMOVE_ITEM_SQL: &'static str = formatcp!(
-        r#"DELETE FROM {} WHERE {}=?1"#,
-        IndexingQueue::TABLE_NAME, IndexingQueue::ID_COLUMN
-    );
-
-    pub fn new(connection: Connection) -> Result<Self, rusqlite::Error> {
-        connection.execute(IndexingQueue::CREATE_TABLE_SQL, ())?;
-        connection.execute(IndexingQueue::RESET_IN_PROGRESS_ITEMS_SQL, ())?;
+        let remove_item_sql = Query::delete()
+            .from_table(Queue::Table)
+            .and_where(Expr::col(Queue::Id).eq(SimpleExpr::Custom("?1".to_string())))
+            .to_sqlite_string();
 
         Ok(Self {
-            connection: Mutex::new(connection),
-            new_item_notify: Notify::new()
+            connection,
+            enqueue_item_sql,
+            peek_item_sql,
+            set_in_progress_sql,
+            remove_item_sql,
+            new_item_notify: Notify::new(),
         })
     }
 
-    pub fn enqueue(&self, uri: Url) -> Result<(), rusqlite::Error> {
-        self.connection.lock().unwrap().execute(IndexingQueue::ENQUEUE_ITEM_SQL, [uri.as_str()])?;
-        self.new_item_notify.notify_one();
-        Ok(())
+    pub fn enqueue(&self, url: Url) -> Result<bool, rusqlite::Error> {
+        let inserted = self.connection.lock().unwrap().execute(&self.enqueue_item_sql, [&url])? > 0;
+
+        if inserted {
+            self.new_item_notify.notify_one();
+        }
+        else {
+            debug!("Duplicated URL {} was not added to the indexing queue", url);
+        }
+
+        Ok(inserted)
     }
 
     pub async fn peek(&self) -> Result<QueueItem, rusqlite::Error> {
@@ -95,14 +114,14 @@ impl IndexingQueue {
             {
                 let connection_guard = self.connection.lock().unwrap();
                 let peek_result = connection_guard.query_row(
-                    IndexingQueue::PEEK_ITEM_SQL, (),
+                    &self.peek_item_sql, (),
                     |row| Ok(QueueItem {
                         id: row.get(0)?,
-                        uri: Url::parse(row.get::<_, String>(1)?.as_str()).unwrap(),
+                        url: row.get::<_, Url>(1)?,
                     })).optional()?;
 
                 if let Some(item) = peek_result {
-                    connection_guard.execute(IndexingQueue::SET_IN_PROGRESS_SQL, [item.id])?;
+                    connection_guard.execute(&self.set_in_progress_sql, [item.id])?;
                     return Ok(item);
                 }
             }
@@ -112,7 +131,7 @@ impl IndexingQueue {
     }
 
     pub fn mark_processed(&self, id: i64) -> Result<(), rusqlite::Error> {
-        self.connection.lock().unwrap().execute(IndexingQueue::REMOVE_ITEM_SQL, [id])?;
+        self.connection.lock().unwrap().execute(&self.remove_item_sql, [id])?;
         Ok(())
     }
 
@@ -131,6 +150,8 @@ impl IndexingQueue {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use rusqlite::Connection;
     use tokio::runtime::Handle;
     use tokio::task::block_in_place;
@@ -146,7 +167,7 @@ mod tests {
             .unwrap()
             .block_on(async {
                 let connection = Connection::open("test.db").unwrap();
-                let queue = IndexingQueue::new(connection).unwrap();
+                let queue = IndexingQueue::new(Arc::new(Mutex::new(connection))).unwrap();
                 queue.enqueue(Url::parse("http://localhost").unwrap()).unwrap();
                 let item = queue.peek().await.unwrap();
                 queue.mark_processed(item.id).unwrap();

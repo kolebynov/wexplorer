@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 
 use api::{IndexingApiImpl, indexing_api_server::IndexingApiServer};
-use indexing::{Indexer, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer, UrlProcessorImpl, UrlProcessor, RemoveQueryParamsNormalizer, RemoveQueryParam, QueryParamMatchType, SortQueryParamsNormalizer, SchemeToLowerCaseNormalizer, TextExtractor};
+use indexing::{Indexer, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer, UrlProcessorImpl, UrlProcessor, RemoveQueryParamsNormalizer, RemoveQueryParam, QueryParamMatchType, SortQueryParamsNormalizer, SchemeToLowerCaseNormalizer, TextExtractor, Storage};
 use queue::IndexingQueue;
 use tonic::transport::Server;
 use tower::{Layer, Service};
@@ -68,9 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_normalizer(SortQueryParamsNormalizer {})
         .add_normalizer(SchemeToLowerCaseNormalizer {})
         .build();
-    let connection = Connection::open("temp.db").unwrap();
+    let connection = Arc::new(Mutex::new(Connection::open("temp.db").unwrap()));
     let mut indexer = Indexer::new(
-        IndexingQueue::new(connection).unwrap(),
+        IndexingQueue::new(connection.clone()).unwrap(), Storage::new(connection).unwrap(),
         UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
     indexer.start_processing(2);
     Server::builder()

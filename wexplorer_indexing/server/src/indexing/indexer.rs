@@ -1,17 +1,18 @@
 use std::{sync::Arc, future::Future, pin::Pin, task::{Context, Poll}, time::Duration, rc::Rc};
 
+use chrono::Utc;
 use itertools::Itertools;
 use reqwest::redirect::Policy;
 use scraper::{Selector, Element};
 use tokio::{task::{JoinHandle, futures}, select, sync::oneshot};
 use tokio_util::sync::{CancellationToken, WaitForCancellationFuture};
-use tracing::{info, Instrument, trace_span, info_span, span, Level, error_span, warn};
+use tracing::{info, Instrument, trace_span, info_span, span, Level, error_span, warn, debug};
 use url::Url;
 use wexplorer_searching_grpc_client::{searching_api_client::SearchingApiClient, AddPageRequest};
 
 use crate::queue::IndexingQueue;
 
-use super::{url_processing::{UrlProcessor, UrlProcessorImpl, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer}, text_extracting::TextExtractor};
+use super::{url_processing::{UrlProcessor, UrlProcessorImpl, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer}, text_extracting::TextExtractor, Storage};
 
 struct WithCancellation<'a, T> {
     inner: Pin<Box<T>>,
@@ -43,6 +44,7 @@ impl<T: UrlProcessor + Send + Sync> SendSyncUrlProcessor for T {}
 
 pub struct Indexer<U> {
     queue: Arc<IndexingQueue>,
+    indexed_links_storage: Arc<Storage>,
     processing_handles: Vec<JoinHandle<()>>,
     cancellation_token: CancellationToken,
     url_processor: U,
@@ -53,9 +55,10 @@ impl<U> Indexer<U>
 where
     U: UrlProcessor + Clone + Send + 'static
 {
-    pub fn new(queue: IndexingQueue, url_processor: U, text_extractor: TextExtractor) -> Self {
+    pub fn new(queue: IndexingQueue, indexed_links_storage: Storage, url_processor: U, text_extractor: TextExtractor) -> Self {
         Self {
             queue: Arc::new(queue),
+            indexed_links_storage: Arc::new(indexed_links_storage),
             processing_handles: Vec::new(),
             cancellation_token: CancellationToken::new(),
             url_processor,
@@ -74,18 +77,19 @@ where
 
         for i in 0..worker_count {
             let queue = self.queue.clone();
-            let ct = self.cancellation_token.clone();
+            let indexed_links_storage = self.indexed_links_storage.clone();
             let url_processor = self.url_processor.clone();
             let text_extractor = self.text_extractor.clone();
+            let ct = self.cancellation_token.clone();
 
             self.processing_handles.push(tokio::spawn(async move {
-                Indexer::process_queue(queue, url_processor, text_extractor).with_cancellation(&ct).await;
+                Indexer::process_queue(&queue, &indexed_links_storage, url_processor, text_extractor).with_cancellation(&ct).await;
                 info!("Indexing worker stopped");
             }.instrument(error_span!("indexing_worker", worker = i))));
         }
     }
 
-    async fn process_queue(queue: Arc<IndexingQueue>, url_processor: U, text_extractor: TextExtractor) {
+    async fn process_queue(queue: &IndexingQueue, indexed_links_storage: &Storage, url_processor: U, text_extractor: TextExtractor) {
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
             .redirect(Policy::limited(20))
@@ -110,12 +114,12 @@ where
 
         loop {
             let queue_item = queue.peek().await.unwrap();
-            info!("Processing {}", queue_item.uri);
+            info!("Processing {}", queue_item.url);
 
-            let html_text = match execute_request(&http_client, &queue_item.uri).await {
+            let html_text = match execute_request(&http_client, &queue_item.url).await {
                 Ok(text) => text,
                 Err(err) => {
-                    warn!("Request {} failed {}", queue_item.uri, err);
+                    warn!("Request {} failed {}", queue_item.url, err);
                     continue;
                 },
             };
@@ -127,10 +131,10 @@ where
                 }
 
                 let base_url = if let Some(base) = html.select(&base_selector).next() {
-                    queue_item.uri.join(base.value().attr("href").unwrap_or("")).unwrap_or(queue_item.uri.clone())
+                    queue_item.url.join(base.value().attr("href").unwrap_or("")).unwrap_or(queue_item.url.clone())
                 }
                 else {
-                    queue_item.uri.clone()
+                    queue_item.url.clone()
                 };
 
                 let links = html.select(&link_selector)
@@ -142,18 +146,29 @@ where
 
             info!("Html has {} links", links.len());
 
+            let links = links.into_iter()
+                .filter(|l| {
+                    let was_indexed = indexed_links_storage.get_last_indexed_time(l).unwrap().is_some();
+                    if was_indexed {
+                        debug!("Skip already indexed URL {}", l);
+                    }
+
+                    !was_indexed
+                });
+
             for link in links {
                 queue.enqueue(link).unwrap();
             }
 
             if let Some(text) = text {
-                while let Err(err) = searching_client.add_page(AddPageRequest { url: queue_item.uri.to_string(), text: text.clone() }).await {
+                while let Err(err) = searching_client.add_page(AddPageRequest { url: queue_item.url.to_string(), text: text.clone() }).await {
                     warn!("Failed to send page to searching service {}", err);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             }
 
             queue.mark_processed(queue_item.id).unwrap();
+            indexed_links_storage.add(&queue_item.url, Utc::now()).unwrap();
         }
     }
 }
