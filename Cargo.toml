@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "wexplorer_infrastructure",
     "wexplorer_web_app/server",
     "wexplorer_web_app/grpc_client",
     "wexplorer_indexing/server",
@@ -41,3 +42,4 @@ rusqlite = { version = "0.29", features = ["bundled", "url", "chrono"] }
 const_format = "0.2"
 sea-query = { version = "0.30", features = ["derive", "backend-sqlite"] }
 chrono = "0.4"
+config = { version = "0.13", default-features = false, features = ["json"] }

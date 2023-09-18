@@ -23,6 +23,7 @@ const_format = { workspace = true }
 sea-query = { workspace = true }
 chrono = { workspace = true }
 wexplorer_searching_grpc_client = { path = "../../wexplorer_searching/grpc_client" }
+wexplorer_infrastructure = { path = "../../wexplorer_infrastructure" }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

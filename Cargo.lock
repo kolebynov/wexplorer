@@ -3326,7 +3326,19 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "url",
+ "wexplorer_infrastructure",
  "wexplorer_searching_grpc_client",
+]
+
+[[package]]
+name = "wexplorer_infrastructure"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "tonic",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]

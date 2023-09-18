@@ -1,4 +1,4 @@
-use std::{sync::{Arc, atomic::AtomicU64}, task::{Context, Poll}, fmt::Debug};
+use std::{sync::{Arc, atomic::AtomicU64}, task::{Context, Poll}, fmt::Debug, env};
 use std::sync::Mutex;
 use rusqlite::Connection;
 
@@ -10,6 +10,7 @@ use tower::{Layer, Service};
 use tracing::{Instrument, instrument::Instrumented, error_span, Level};
 use tracing_log::LogTracer;
 use url::Url;
+use wexplorer_infrastructure::{config, logging};
 
 mod api;
 mod queue;
@@ -56,10 +57,8 @@ where
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::fmt().with_thread_ids(true).with_target(false).with_max_level(Level::INFO).finish()
-    ).unwrap();
-    LogTracer::init().unwrap();
+    let config = config::load_default_configuration()?;
+    logging::init(&config)?;
 
     let url_filter = AllowedSchemeUrlFilter::new(vec!["http".to_string(), "https".to_string()]);
     let url_normalizer = UrlNormalizerBuilder::new()
@@ -68,9 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_normalizer(SortQueryParamsNormalizer {})
         .add_normalizer(SchemeToLowerCaseNormalizer {})
         .build();
-    let connection = Arc::new(Mutex::new(Connection::open("temp.db").unwrap()));
+    let connection = Arc::new(Mutex::new(Connection::open("temp.db")?));
     let mut indexer = Indexer::new(
-        IndexingQueue::new(connection.clone()).unwrap(), Storage::new(connection).unwrap(),
+        IndexingQueue::new(connection.clone())?, Storage::new(connection)?,
         UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
     indexer.start_processing(2);
     Server::builder()
