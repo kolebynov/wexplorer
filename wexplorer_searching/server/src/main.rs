@@ -3,7 +3,6 @@
 use api::{searching_api_server::SearchingApiServer, SearchingApiImpl};
 use tonic::transport::Server;
 use tracing::Level;
-use tracing_log::LogTracer;
 
 mod api;
 
@@ -12,7 +11,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(
         tracing_subscriber::fmt().with_thread_ids(true).with_target(false).with_max_level(Level::INFO).finish()
     ).unwrap();
-    LogTracer::init().unwrap();
 
     Server::builder()
         .add_service(SearchingApiServer::new(SearchingApiImpl::new()))

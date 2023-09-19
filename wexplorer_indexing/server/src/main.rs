@@ -8,9 +8,8 @@ use queue::IndexingQueue;
 use tonic::transport::Server;
 use tower::{Layer, Service};
 use tracing::{Instrument, instrument::Instrumented, error_span, Level};
-use tracing_log::LogTracer;
 use url::Url;
-use wexplorer_infrastructure::{config, logging};
+use wexplorer_infrastructure::{config, logging, server::ConfigurableServer};
 
 mod api;
 mod queue;
@@ -56,9 +55,9 @@ where
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = config::load_default_configuration()?;
-    logging::init(&config)?;
+    let _guard = logging::init(&config)?;
 
     let url_filter = AllowedSchemeUrlFilter::new(vec!["http".to_string(), "https".to_string()]);
     let url_normalizer = UrlNormalizerBuilder::new()
@@ -72,10 +71,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         IndexingQueue::new(connection.clone())?, Storage::new(connection)?,
         UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
     indexer.start_processing(2);
-    Server::builder()
+
+    ConfigurableServer::builder(&config)
         .layer(LogLayer {})
         .add_service(IndexingApiServer::new(IndexingApiImpl { indexer }))
-        .serve("0.0.0.0:8082".parse()?)
+        .serve()
         .await?;
 
     Ok(())

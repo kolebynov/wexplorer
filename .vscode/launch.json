@@ -1,0 +1,232 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wexplorer_infrastructure'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wexplorer_infrastructure"
+                ],
+                "filter": {
+                    "name": "wexplorer_infrastructure",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'wexplorer_web_app_server'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=wexplorer_web_app_server",
+                    "--package=wexplorer_web_app_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_web_app_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'wexplorer_web_app_server'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=wexplorer_web_app_server",
+                    "--package=wexplorer_web_app_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_web_app_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wexplorer_searching_grpc_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wexplorer_searching_grpc_client"
+                ],
+                "filter": {
+                    "name": "wexplorer_searching_grpc_client",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wexplorer_web_app_grpc_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wexplorer_web_app_grpc_client"
+                ],
+                "filter": {
+                    "name": "wexplorer_web_app_grpc_client",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'wexplorer_indexing_server'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=wexplorer_indexing_server",
+                    "--package=wexplorer_indexing_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_indexing_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/wexplorer_indexing/server"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'wexplorer_indexing_server'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=wexplorer_indexing_server",
+                    "--package=wexplorer_indexing_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_indexing_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wexplorer_indexing_grpc_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wexplorer_indexing_grpc_client"
+                ],
+                "filter": {
+                    "name": "wexplorer_indexing_grpc_client",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'wexplorer_searching_server'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=wexplorer_searching_server",
+                    "--package=wexplorer_searching_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_searching_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'wexplorer_searching_server'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=wexplorer_searching_server",
+                    "--package=wexplorer_searching_server"
+                ],
+                "filter": {
+                    "name": "wexplorer_searching_server",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'wexplorer_web_client'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=wexplorer_web_client",
+                    "--package=wexplorer_web_client"
+                ],
+                "filter": {
+                    "name": "wexplorer_web_client",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'wexplorer_web_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=wexplorer_web_client",
+                    "--package=wexplorer_web_client"
+                ],
+                "filter": {
+                    "name": "wexplorer_web_client",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -10,7 +10,6 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true }
 tonic = { workspace = true, default-features = true }
 tracing = { workspace = true }
-tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 itertools = { workspace = true }
 url = { workspace = true }
