@@ -1,8 +1,7 @@
 {
     "http": {
-        "address": "0.0.0.0:8082"
+        "address": "0.0.0.0:8083"
     },
-    "dbFilePath": "temp.db",
     "tracing": {
         "defaultLevel": "Info",
         "layers": [

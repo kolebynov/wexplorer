@@ -1,15 +1,13 @@
 use std::{sync::{Arc, atomic::AtomicU64}, task::{Context, Poll}, fmt::Debug, env};
 use std::sync::Mutex;
+use app_infrastructure::{app_config::AppConfigurationBuilder, BoxError, app_tracing, tonic::ConfigurableServer};
 use rusqlite::Connection;
 
 use api::{IndexingApiImpl, indexing_api_server::IndexingApiServer};
 use indexing::{Indexer, AllowedSchemeUrlFilter, UrlNormalizerBuilder, RemoveFragmentNormalizer, UrlProcessorImpl, UrlProcessor, RemoveQueryParamsNormalizer, RemoveQueryParam, QueryParamMatchType, SortQueryParamsNormalizer, SchemeToLowerCaseNormalizer, TextExtractor, Storage};
 use queue::IndexingQueue;
-use tonic::transport::Server;
 use tower::{Layer, Service};
 use tracing::{Instrument, instrument::Instrumented, error_span, Level};
-use url::Url;
-use wexplorer_infrastructure::{config, logging, server::ConfigurableServer};
 
 mod api;
 mod queue;
@@ -55,9 +53,9 @@ where
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let config = config::load_default_configuration()?;
-    let _guard = logging::init(&config)?;
+async fn main() -> Result<(), BoxError> {
+    let app_config = AppConfigurationBuilder::default().build()?;
+    app_tracing::init_from_config(&app_config.config)?;
 
     let url_filter = AllowedSchemeUrlFilter::new(vec!["http".to_string(), "https".to_string()]);
     let url_normalizer = UrlNormalizerBuilder::new()
@@ -72,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         UrlProcessorImpl::new(url_filter, url_normalizer), TextExtractor::new());
     indexer.start_processing(2);
 
-    ConfigurableServer::builder(&config)
+    ConfigurableServer::builder(&app_config.config)
         .layer(LogLayer {})
         .add_service(IndexingApiServer::new(IndexingApiImpl { indexer }))
         .serve()

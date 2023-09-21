@@ -77,6 +77,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
+name = "app_infrastructure"
+version = "0.1.0"
+source = "git+https://github.com/kolebynov/app_infrastructure.git#80f4507c8e8147fd0584e7278817ce1d8492c819"
+dependencies = [
+ "bytes",
+ "config",
+ "http",
+ "http-body",
+ "hyper",
+ "serde",
+ "tonic",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "async-compression"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3337,6 +3356,7 @@ dependencies = [
 name = "wexplorer_indexing_server"
 version = "0.1.0"
 dependencies = [
+ "app_infrastructure",
  "chrono",
  "const_format",
  "ego-tree",
@@ -3353,27 +3373,8 @@ dependencies = [
  "tonic-build",
  "tower",
  "tracing",
- "tracing-subscriber",
  "url",
- "wexplorer_infrastructure",
  "wexplorer_searching_grpc_client",
-]
-
-[[package]]
-name = "wexplorer_infrastructure"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "config",
- "http",
- "http-body",
- "hyper",
- "tonic",
- "tower-layer",
- "tower-service",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3389,6 +3390,7 @@ dependencies = [
 name = "wexplorer_searching_server"
 version = "0.1.0"
 dependencies = [
+ "app_infrastructure",
  "itertools 0.11.0",
  "num",
  "opensearch",
@@ -3401,7 +3403,6 @@ dependencies = [
  "tonic-build",
  "tower",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 

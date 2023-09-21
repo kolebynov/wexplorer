@@ -1,20 +1,16 @@
-#![feature(round_char_boundary)]
-
 use api::{searching_api_server::SearchingApiServer, SearchingApiImpl};
-use tonic::transport::Server;
-use tracing::Level;
+use app_infrastructure::{app_config::AppConfigurationBuilder, app_tracing, BoxError, tonic::ConfigurableServer};
 
 mod api;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::fmt().with_thread_ids(true).with_target(false).with_max_level(Level::INFO).finish()
-    ).unwrap();
+async fn main() -> Result<(), BoxError> {
+    let app_config = AppConfigurationBuilder::default().build()?;
+    app_tracing::init_from_config(&app_config.config)?;
 
-    Server::builder()
+    ConfigurableServer::builder(&app_config.config)
         .add_service(SearchingApiServer::new(SearchingApiImpl::new()))
-        .serve("0.0.0.0:8083".parse()?)
+        .serve()
         .await?;
 
     Ok(())

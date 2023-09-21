@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+app_infrastructure = { workspace = true }
 prost = { workspace = true }
 tower = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true }
 tonic = { workspace = true, default-features = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 reqwest = { workspace = true }
 scraper = { workspace = true }
 itertools = { workspace = true }
@@ -22,7 +22,6 @@ const_format = { workspace = true }
 sea-query = { workspace = true }
 chrono = { workspace = true }
 wexplorer_searching_grpc_client = { path = "../../wexplorer_searching/grpc_client" }
-wexplorer_infrastructure = { path = "../../wexplorer_infrastructure" }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
